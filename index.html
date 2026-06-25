@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>乐之笛 | Vlog 配乐多智能体平台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SP</div>
+        <div>
+          <h1>ScorePilot</h1>
+          <p>Vlog 配乐规划 AI</p>
+        </div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="new-task" type="button" id="newTask">+ 新建配乐任务</button>
+        <button class="ghost-button" type="button" id="loadDemo">载入城市夜景示例</button>
+      </div>
+
+      <section class="side-section">
+        <h2>历史任务</h2>
+        <div class="task-list" id="taskList"></div>
+      </section>
+
+      <section class="side-section">
+        <h2>模型配置</h2>
+        <div class="model-form">
+          <label for="baseUrl">Base URL</label>
+          <input id="baseUrl" type="text" autocomplete="off" placeholder="https://api.openai.com/v1">
+          <label for="modelName">Model</label>
+          <input id="modelName" type="text" autocomplete="off" placeholder="gpt-4.1-mini">
+          <label for="apiKey">API Key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+          <button class="ghost-button" type="button" id="saveModel">保存配置</button>
+          <p class="model-note" id="modelNote">未配置或调用失败时自动使用本地规划模拟。</p>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="task-heading">
+          <h2 id="taskTitle">新配乐任务</h2>
+          <p id="taskSubtitle">先把模糊想法交给规划 AI，它会逐轮补全需求。</p>
+        </div>
+        <div class="top-actions">
+          <span class="pill" id="statusPill">草稿</span>
+          <span class="pill live" id="plannerSource">本地模拟待命</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="panel chat-panel">
+          <div class="panel-header">
+            <div>
+              <h3>描述你的配乐需求</h3>
+              <p>规划 AI 会一轮一轮追问，最后生成可修改的完整需求总结。</p>
+            </div>
+          </div>
+          <div class="agent-status" id="agentStatus"></div>
+          <div class="messages" id="messages"></div>
+          <div class="composer">
+            <textarea id="chatInput" placeholder="例如：城市夜景 vlog，一个人下班后穿过街区，想要孤独但高级，不要太吵。"></textarea>
+            <div class="composer-actions">
+              <span class="hint" id="composerHint">按“发送给规划 AI”开始新任务。</span>
+              <div class="button-row">
+                <button class="secondary" type="button" id="forceSummary">直接生成总结</button>
+                <button class="primary" type="button" id="sendMessage">发送给规划 AI</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="right-stack">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3>AI 需求总结</h3>
+                <p>确认前可以直接改写，后续找歌会使用这里的最终描述。</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="summaryEmpty" class="summary-empty">完成几轮澄清后，规划 AI 会在这里输出完整需求。</div>
+              <textarea id="summaryEditor" class="summary-editor hidden"></textarea>
+              <div class="button-row" style="margin-top:10px;">
+                <button class="primary" type="button" id="confirmSummary">确认需求并生成歌单</button>
+                <button class="secondary" type="button" id="rewriteSummary">让 AI 继续追问</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" id="recommendationPanel">
+            <div class="panel-header">
+              <div>
+                <h3>推荐歌单</h3>
+                <p>确认需求后，音乐寻找 Agent 和音乐分析 Agent 会生成候选曲目。</p>
+              </div>
+              <span class="pill" id="playlistPill">未生成</span>
+            </div>
+            <div class="panel-body">
+              <div class="metrics">
+                <div class="metric"><strong id="metricTracks">0</strong><span>候选曲库</span></div>
+                <div class="metric"><strong id="metricFit">0%</strong><span>最高匹配</span></div>
+                <div class="metric"><strong id="metricBpm">--</strong><span>建议 BPM</span></div>
+              </div>
+              <div class="result-list" id="resultList"></div>
+              <div class="feedback-box hidden" id="feedbackBox">
+                <div class="feedback-chips" id="feedbackChips"></div>
+                <input id="feedbackInput" type="text" placeholder="例如：太吵了，想要更悲伤一点">
+                <button class="secondary" type="button" id="applyFeedback">应用反馈并重排</button>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/profile.js"></script>
+  <script src="js/planner.js"></script>
+  <script src="js/finder.js"></script>
+  <script src="js/analyst.js"></script>
+  <script src="js/feedback.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
