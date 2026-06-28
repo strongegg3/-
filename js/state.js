@@ -1,5 +1,5 @@
 (function (global) {
-  const { TASK_STORAGE_KEY, ACTIVE_TASK_KEY, MODEL_STORAGE_KEY, defaultModel, demoBrief } = global.AppConfig;
+  const { TASK_STORAGE_KEY, ACTIVE_TASK_KEY, MODEL_STORAGE_KEY, USER_STORAGE_KEY, defaultModel, demoBrief } = global.AppConfig;
   const { buildProfile, nameOf } = global.AppProfile;
 
   function safeParse(value, fallback) {
@@ -14,11 +14,14 @@
     const tasks = safeParse(localStorage.getItem(TASK_STORAGE_KEY), []);
     const activeId = localStorage.getItem(ACTIVE_TASK_KEY);
     const model = { ...defaultModel, ...safeParse(localStorage.getItem(MODEL_STORAGE_KEY), {}) };
+    const user = safeParse(localStorage.getItem(USER_STORAGE_KEY), { cookie: "", profile: null, loggedIn: false });
     const state = {
       tasks,
       activeId: tasks.some((task) => task.id === activeId) ? activeId : tasks[0] ? tasks[0].id : null,
       model,
-      busy: false
+      user,
+      busy: false,
+      activeChannel: "all"
     };
     return state;
   }
@@ -26,6 +29,15 @@
   function saveState(state) {
     localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(state.tasks));
     if (state.activeId) localStorage.setItem(ACTIVE_TASK_KEY, state.activeId);
+  }
+
+  function saveUser(state, userData) {
+    state.user = { ...state.user, ...userData };
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify({
+      cookie: state.user.cookie || "",
+      profile: state.user.profile || null,
+      loggedIn: state.user.loggedIn || false
+    }));
   }
 
   function saveModelSettings(state, config) {
@@ -67,7 +79,7 @@
       messages: [
         {
           role: "assistant",
-          content: "把视频内容、文案或想要的感觉发给我。我会先补齐真实需求，再交给音乐寻找 Agent。",
+          content: "把视频内容、文案或想要的感觉发给我。我会先补齐真实需求（包括配乐用途），再交给对应的音乐寻找 Agent。",
           time: now
         }
       ],
@@ -77,6 +89,8 @@
       confirmedSummary: "",
       profile: null,
       results: [],
+      playlists: [],
+      channels: null,
       feedback: []
     };
     return { task, seedText: seedText || "" };
@@ -90,6 +104,7 @@
     loadState,
     saveState,
     saveModelSettings,
+    saveUser,
     createTask,
     createDemoTask,
     touch,

@@ -1,6 +1,6 @@
 (function (global) {
   const { plannerQuestions, defaultModel } = global.AppConfig;
-  const { nameOf, buildProfile, inferPlatform, inferDuration } = global.AppProfile;
+  const { nameOf, useLabel, buildProfile, inferPlatform, inferDuration } = global.AppProfile;
 
   function normalizeEndpoint(baseUrl) {
     const trimmed = baseUrl.replace(/\/+$/, "");
@@ -37,8 +37,8 @@
       "你是乐之笛的规划 AI，服务对象是 vlogger 和剪辑师。",
       "你的任务是通过逐轮追问，把用户模糊的配乐想法整理成完整需求。",
       "你现在只负责需求澄清，不推荐具体歌曲。",
-      "每轮最多问一个关键问题。信息足够时输出 summary_ready。",
-      "必须只输出 JSON，不要 Markdown。",
+      "每轮最多问一个关键问题。必须问清楚配乐用途：是开场曲、背景BGM、转场音乐、高潮配乐还是结尾音乐？",
+      "信息足够时输出 summary_ready。必须只输出 JSON，不要 Markdown。",
       "JSON 字段：stage 为 questioning 或 summary_ready；assistant_message 为给用户看的话；summary 为最终总结，未完成时为空字符串。"
     ].join("\n");
     const modelMessages = [
@@ -51,7 +51,7 @@
     if (forceSummary) {
       modelMessages.push({
         role: "user",
-        content: "请基于已有对话直接输出 summary_ready，并生成完整可执行的配乐需求总结。"
+        content: "请基于已有对话直接输出 summary_ready，并生成完整可执行的配乐需求总结。务必明确标注配乐用途（开场/背景BGM/转场/高潮/结尾）。"
       });
     }
     const res = await fetch(endpoint, {
@@ -90,10 +90,12 @@
     const profile = buildProfile(text);
     const scenes = profile.scenes.map(nameOf).join("、");
     const moods = profile.moods.map(nameOf).join("、");
+    const uses = profile.uses.map(useLabel).join("、");
     const platform = inferPlatform(text);
     const duration = inferDuration(text);
     return [
       `视频内容：${extractBrief(text)}`,
+      `配乐用途：${uses}。需要由对应的专用音乐寻找 Agent 来寻找合适曲目。`,
       `目标情绪：${moods}。整体应服务画面叙事，不喧宾夺主。`,
       `画面场景：${scenes}。`,
       `节奏需求：建议 ${profile.bpmTarget[0]}-${profile.bpmTarget[1]} BPM，能量控制在 ${profile.energyTarget[0]}-${profile.energyTarget[1]}/100。${profile.wantsBeat ? "需要有清晰鼓点和可卡点段落。" : "需要自然铺垫和稳定推进。"}`,
@@ -108,7 +110,7 @@
     if (forceSummary || userCount >= plannerQuestions.length + 1) {
       return {
         stage: "summary_ready",
-        assistant_message: "我已经把你的配乐需求整理好了。你可以在右侧直接修改，确认后我会交给音乐寻找 Agent。",
+        assistant_message: "我已经把你的配乐需求整理好了。你可以在右侧直接修改，确认后我会交给对应的音乐寻找 Agent。",
         summary: buildSummaryFromTask(task)
       };
     }

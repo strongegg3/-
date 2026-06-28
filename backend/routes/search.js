@@ -5,6 +5,14 @@ const { searchQQMusic } = require("../services/qqmusic");
 const { searchYouTube } = require("../services/youtube");
 const { searchSpotify } = require("../services/spotify");
 const { normalizeTrack } = require("../utils/normalize");
+const { fetchPremiumPlaylists, getSearchKeywords } = require("../services/ncm-playlist");
+const {
+  loginWithCookie,
+  isLoggedIn,
+  searchUserTracksForUse,
+  logout,
+  fetchUserPlaylists
+} = require("../services/ncm-user");
 
 const router = express.Router();
 
@@ -27,6 +35,29 @@ function withTimeout(promise, ms, label) {
   ]).catch((err) => {
     console.warn(`[search] ${label} 失败:`, err.message);
     return [];
+  });
+}
+
+function withTimeoutObj(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => {
+      console.warn(`[search] ${label} 超时`);
+      resolve({ playlists: [], tracks: [] });
+    }, ms))
+  ]).catch((err) => {
+    console.warn(`[search] ${label} 失败:`, err.message);
+    return { playlists: [], tracks: [] };
+  });
+}
+
+function deduplicate(tracks) {
+  const seen = new Set();
+  return tracks.filter((t) => {
+    const key = `${t.title}||${t.artist}`.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 
@@ -71,7 +102,6 @@ router.post("/", async (req, res) => {
   });
 
   const allTracks = allRawTracks.map((r) => normalizeTrack(r, profile));
-
   const deduplicated = deduplicate(allTracks);
 
   const platformGroups = {};
@@ -108,24 +138,243 @@ router.post("/", async (req, res) => {
     round++;
   }
 
-  const top = interleaved;
-
   res.json({
     keyword: trimmedKeyword,
-    total: top.length,
+    total: interleaved.length,
     sources: sourceCounts,
-    tracks: top
+    tracks: interleaved
   });
 });
 
-function deduplicate(tracks) {
-  const seen = new Set();
-  return tracks.filter((t) => {
-    const key = `${t.title}||${t.artist}`.toLowerCase().trim();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+router.post("/playlists", async (req, res) => {
+  const { scenes = [], moods = [], genres = [], uses = [], wantsSoft, wantsSad, wantsEnergy, wantsBeat } = req.body;
+
+  const profile = {
+    scenes: Array.isArray(scenes) ? scenes : [],
+    moods: Array.isArray(moods) ? moods : [],
+    genres: Array.isArray(genres) ? genres : [],
+    uses: Array.isArray(uses) ? uses : ["general"],
+    wantsSoft: Boolean(wantsSoft),
+    wantsSad: Boolean(wantsSad),
+    wantsEnergy: Boolean(wantsEnergy),
+    wantsBeat: Boolean(wantsBeat)
+  };
+
+  try {
+    const { playlists: rawPlaylists, tracks: rawTracks } = await withTimeoutObj(
+      fetchPremiumPlaylists(profile, 5),
+      25000,
+      "ncm-playlist(精品歌单)"
+    );
+
+    const tracks = rawTracks.map((r) => {
+      const normalized = normalizeTrack(r, profile);
+      normalized._fromPlaylist = true;
+      normalized._playlistName = r._playlistName;
+      normalized._playlistId = r._playlistId;
+      normalized._playlistCat = r._playlistCat;
+      normalized.channel = "playlists";
+      return normalized;
+    });
+
+    const formattedPlaylists = (rawPlaylists || []).map((pl) => ({
+      id: pl.id,
+      name: pl.name,
+      cover: pl.cover,
+      trackCount: pl.trackCount,
+      playCount: pl.playCount,
+      subscribedCount: pl.subscribedCount,
+      creator: pl.creator,
+      cat: pl.cat,
+      tags: pl.tags,
+      description: pl.description,
+      url: pl.url
+    }));
+
+    res.json({
+      playlists: formattedPlaylists,
+      tracks: tracks,
+      total: tracks.length,
+      keywords: getSearchKeywords(profile)
+    });
+  } catch (err) {
+    console.error("[search] 歌单搜索失败:", err.message);
+    res.json({ playlists: [], tracks: [], total: 0 });
+  }
+});
+
+router.post("/user", async (req, res) => {
+  const { scenes = [], moods = [], genres = [], uses = [], wantsSoft, wantsSad, wantsEnergy, wantsBeat } = req.body;
+
+  const profile = {
+    scenes: Array.isArray(scenes) ? scenes : [],
+    moods: Array.isArray(moods) ? moods : [],
+    genres: Array.isArray(genres) ? genres : [],
+    uses: Array.isArray(uses) ? uses : ["general"],
+    wantsSoft: Boolean(wantsSoft),
+    wantsSad: Boolean(wantsSad),
+    wantsEnergy: Boolean(wantsEnergy),
+    wantsBeat: Boolean(wantsBeat)
+  };
+
+  if (!isLoggedIn()) {
+    return res.json({
+      loggedIn: false,
+      playlists: [],
+      tracks: [],
+      total: 0,
+      profile: null
+    });
+  }
+
+  try {
+    const result = await withTimeoutObj(
+      searchUserTracksForUse(profile, 8),
+      20000,
+      "ncm-user(个人歌单)"
+    );
+
+    const tracks = (result.tracks || []).map((r) => {
+      const normalized = normalizeTrack(r, profile);
+      normalized._fromUserPlaylist = r._fromUserPlaylist;
+      normalized._fromLiked = r._fromLiked;
+      normalized._playlistName = r._playlistName;
+      normalized.channel = "user";
+      return normalized;
+    });
+
+    const formattedPlaylists = (result.playlists || []).map((pl) => ({
+      id: pl.id,
+      name: pl.name,
+      cover: pl.cover,
+      trackCount: pl.trackCount,
+      creator: pl.creator,
+      isCreated: pl.isCreated,
+      url: pl.url
+    }));
+
+    res.json({
+      loggedIn: true,
+      profile: result.profile,
+      playlists: formattedPlaylists,
+      tracks: deduplicate(tracks),
+      total: tracks.length
+    });
+  } catch (err) {
+    console.error("[search] 用户歌单搜索失败:", err.message);
+    res.json({ loggedIn: true, playlists: [], tracks: [], total: 0, error: err.message });
+  }
+});
+
+router.post("/find", async (req, res) => {
+  const { profile, keyword } = req.body;
+  const useProfile = profile || {};
+  useProfile.uses = Array.isArray(useProfile.uses) ? useProfile.uses : ["general"];
+  useProfile.scenes = Array.isArray(useProfile.scenes) ? useProfile.scenes : [];
+  useProfile.moods = Array.isArray(useProfile.moods) ? useProfile.moods : [];
+
+  const tracksPerPlaylist = 6;
+
+  const [playlistResult, userResult] = await Promise.all([
+    withTimeoutObj(fetchPremiumPlaylists(useProfile, tracksPerPlaylist), 25000, "精品歌单"),
+    isLoggedIn()
+      ? withTimeoutObj(searchUserTracksForUse(useProfile, tracksPerPlaylist), 20000, "个人歌单")
+      : Promise.resolve({ playlists: [], tracks: [], loggedIn: false })
+  ]);
+
+  const singleKeyword = keyword || getSearchKeywords(useProfile);
+  const searchLimit = 8;
+
+  const singleTasks = [
+    withTimeout(searchNCM(singleKeyword, searchLimit), 10000, "ncm单曲"),
+    withTimeout(searchITunes(singleKeyword, searchLimit), 8000, "itunes单曲")
+  ];
+  const singleLabels = ["netease", "itunes"];
+  const spotId = process.env.SPOTIFY_CLIENT_ID || "";
+  const spotSecret = process.env.SPOTIFY_CLIENT_SECRET || "";
+  if (isRealKey(spotId) && isRealKey(spotSecret)) {
+    singleTasks.push(withTimeout(searchSpotify(singleKeyword, searchLimit, spotId, spotSecret), 6000, "spotify单曲"));
+    singleLabels.push("spotify");
+  }
+
+  const singleResults = await Promise.all(singleTasks);
+  const allSingles = [];
+  singleResults.forEach((tracks, i) => {
+    tracks.forEach((t) => {
+      allSingles.push(normalizeTrack({ ...t, _platform: singleLabels[i] }, useProfile));
+    });
   });
-}
+
+  const playlistTracks = (playlistResult.tracks || []).map((r) => {
+    const normalized = normalizeTrack(r, useProfile);
+    normalized._fromPlaylist = true;
+    normalized._playlistName = r._playlistName;
+    normalized._playlistCat = r._playlistCat;
+    normalized.channel = "playlists";
+    return normalized;
+  });
+
+  const userTracks = (userResult.tracks || []).map((r) => {
+    const normalized = normalizeTrack(r, useProfile);
+    normalized._fromUserPlaylist = r._fromUserPlaylist;
+    normalized._fromLiked = r._fromLiked;
+    normalized._playlistName = r._playlistName;
+    normalized.channel = "user";
+    return normalized;
+  });
+
+  res.json({
+    keyword: singleKeyword,
+    uses: useProfile.uses,
+    channels: {
+      playlists: {
+        playlists: (playlistResult.playlists || []).map((pl) => ({
+          id: pl.id, name: pl.name, cover: pl.cover, trackCount: pl.trackCount,
+          playCount: pl.playCount, creator: pl.creator, cat: pl.cat,
+          description: pl.description, url: pl.url
+        })),
+        tracks: deduplicate(playlistTracks)
+      },
+      user: {
+        loggedIn: Boolean(userResult.loggedIn),
+        profile: userResult.profile || null,
+        playlists: (userResult.playlists || []).map((pl) => ({
+          id: pl.id, name: pl.name, cover: pl.cover, trackCount: pl.trackCount,
+          creator: pl.creator, isCreated: pl.isCreated, url: pl.url
+        })),
+        tracks: deduplicate(userTracks)
+      },
+      singles: {
+        tracks: deduplicate(allSingles)
+      }
+    }
+  });
+});
+
+router.post("/login", async (req, res) => {
+  const { cookie } = req.body;
+  if (!cookie || typeof cookie !== "string") {
+    return res.status(400).json({ success: false, message: "请提供cookie" });
+  }
+  const result = await loginWithCookie(cookie);
+  res.json(result);
+});
+
+router.post("/logout", (_req, res) => {
+  logout();
+  res.json({ success: true });
+});
+
+router.get("/login/status", (_req, res) => {
+  res.json({ loggedIn: isLoggedIn() });
+});
+
+router.get("/user/playlists", async (_req, res) => {
+  if (!isLoggedIn()) {
+    return res.json({ loggedIn: false, playlists: [] });
+  }
+  const playlists = await fetchUserPlaylists(30);
+  res.json({ loggedIn: true, playlists });
+});
 
 module.exports = router;
