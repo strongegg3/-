@@ -40,7 +40,7 @@ app.listen(PORT, () => {
   console.log(`  地址: http://localhost:${PORT}`);
   console.log(`  搜索: POST http://localhost:${PORT}/api/search\n`);
 
-  console.log(`  ✓ 网易云音乐 (ncm-cli 官方) - 已启用 (无需配置)`);
+  console.log(`  ✓ 网易云音乐 (NeteaseCloudMusicApi) - 已启用 (无需配置)`);
   console.log(`  ✓ Apple Music (iTunes API) - 已启用 (无需配置)`);
   console.log(`  ✓ QQ音乐 (移动端接口) - 已启用 (无需配置)`);
 

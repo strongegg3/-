@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
   }
 
   const trimmedKeyword = keyword.trim();
-  const searchLimit = Math.min(Number(limit) || 8, 8);
+  const searchLimit = Math.min(Math.max(Number(limit) || 8, 8), 15);
 
   const ytKey = process.env.YOUTUBE_API_KEY || "";
   const spotId = process.env.SPOTIFY_CLIENT_ID || "";
@@ -74,9 +74,41 @@ router.post("/", async (req, res) => {
 
   const deduplicated = deduplicate(allTracks);
 
-  deduplicated.sort((a, b) => (b.heat || 0) - (a.heat || 0));
+  const platformGroups = {};
+  deduplicated.forEach((t) => {
+    const p = t.platform || "unknown";
+    if (!platformGroups[p]) platformGroups[p] = [];
+    platformGroups[p].push(t);
+  });
 
-  const top = deduplicated.slice(0, limit);
+  Object.keys(platformGroups).forEach((p) => {
+    platformGroups[p].sort((a, b) => (b.heat || 0) - (a.heat || 0));
+  });
+
+  const platformPriority = ["itunes", "netease", "qqmusic", "spotify", "youtube"];
+  const interleaved = [];
+  const seen = new Set();
+  let added = true;
+  let round = 0;
+  while (added && interleaved.length < Math.max(searchLimit, 15)) {
+    added = false;
+    for (const p of platformPriority) {
+      const bucket = platformGroups[p];
+      if (bucket && round < bucket.length) {
+        const track = bucket[round];
+        const key = `${track.title}||${track.artist}`.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          interleaved.push(track);
+          added = true;
+          if (interleaved.length >= Math.max(searchLimit, 15)) break;
+        }
+      }
+    }
+    round++;
+  }
+
+  const top = interleaved;
 
   res.json({
     keyword: trimmedKeyword,

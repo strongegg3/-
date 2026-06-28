@@ -15,17 +15,24 @@ function normalizeTrack(raw, profile = null) {
   };
   const platformLabel = platforms.length ? platforms : [platformLabels[source] || source];
   const coverUrl = raw.albumCover || raw.coverUrl || raw.thumbnail || raw.artworkUrl || null;
+
+  const estimatedBpm = estimateBpm(raw);
+  const estimatedEnergy = estimateEnergy(raw);
+  const inferredMoods = inferMoods(raw);
+  const inferredGenres = inferGenres(raw);
+  const inferredScenes = inferScenes(raw);
+
   const track = {
     id: `${source}-${raw.id}`,
     title: raw.title || "未知曲目",
     artist: raw.artist || "未知艺人",
     platform: source,
     platforms: platformLabel,
-    bpm: estimateBpm(raw),
-    energy: estimateEnergy(raw),
-    moods: inferMoods(raw),
-    genres: inferGenres(raw),
-    scenes: [],
+    bpm: estimatedBpm,
+    energy: estimatedEnergy,
+    moods: inferredMoods,
+    genres: inferredGenres,
+    scenes: inferredScenes,
     heat: estimateHeat(raw),
     vocal: vocal,
     structure: "",
@@ -127,6 +134,20 @@ function inferGenres(raw) {
   if (/classical|古典|orchestra|交响/.test(title)) genres.push("classical");
   if (/house|trap|dubstep|dnb|drum.*bass/.test(title)) genres.push("electronic");
   return genres;
+}
+
+function inferScenes(raw) {
+  const title = ((raw.title || "") + " " + (raw.album || "") + " " + (raw.genre || "")).toLowerCase();
+  const scenes = [];
+  if (/city|城市|urban|downtown|street|街|night.?view|夜景|霓虹|neon|midnight|深夜|lofi|chill.?hop/.test(title)) scenes.push("city");
+  if (/rain|雨|rainy/.test(title)) scenes.push("rain");
+  if (/coffee|cafe|咖啡|bossa|jazz.?bar|爵士/.test(title)) scenes.push("cafe");
+  if (/travel|trip|旅行|journey|road|路|acoustic|folk|indie.?pop/.test(title)) scenes.push("travel");
+  if (/sea|ocean|beach|海|沙滩|summer/.test(title)) scenes.push("sea");
+  if (/campus|school|校园|piano.?study|study.?music/.test(title)) scenes.push("campus");
+  if (/sunset|sunrise|日出|日落|黄昏|evening|golden.?hour/.test(title)) scenes.push("sunset");
+  if (!scenes.length && /lofi|ambient|chill|piano|calm|relax/.test(title)) scenes.push("city");
+  return scenes;
 }
 
 /**
