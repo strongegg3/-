@@ -3,28 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>乐之笛 | Vlog 配乐多智能体平台</title>
+  <title>乐之笛 | 配乐多智能体平台</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">SP</div>
+        <div class="brand-mark">笛</div>
         <div>
-          <h1>ScorePilot</h1>
-          <p>Vlog 配乐规划 AI</p>
+          <h1>乐之笛</h1>
+          <p>剪辑配乐多智能体</p>
         </div>
       </div>
 
       <div class="sidebar-actions">
         <button class="new-task" type="button" id="newTask">+ 新建配乐任务</button>
-        <button class="ghost-button" type="button" id="loadDemo">载入城市夜景示例</button>
+        <button class="ghost-button" type="button" id="loadDemo">载入示例</button>
       </div>
 
       <section class="side-section">
         <h2>历史任务</h2>
         <div class="task-list" id="taskList"></div>
+      </section>
+
+      <section class="side-section">
+        <h2>网易云音乐</h2>
+        <div class="user-area">
+          <div id="userStatus" class="user-status">
+            <span class="user-guest">未登录</span>
+          </div>
+          <button class="ghost-button small" type="button" id="loginBtn">登录网易云</button>
+          <button class="ghost-button small hidden" type="button" id="logoutBtn">退出登录</button>
+          <p class="model-note">登录后可搜索你喜欢的音乐和个人歌单</p>
+        </div>
       </section>
 
       <section class="side-section">
@@ -59,15 +71,15 @@
           <div class="panel-header">
             <div>
               <h3>描述你的配乐需求</h3>
-              <p>规划 AI 会一轮一轮追问，最后生成可修改的完整需求总结。</p>
+              <p>规划 AI 会询问配乐用途（开场/BGM/转场/高潮）和具体感觉，再交给对应的寻找 Agent。</p>
             </div>
           </div>
           <div class="agent-status" id="agentStatus"></div>
           <div class="messages" id="messages"></div>
           <div class="composer">
-            <textarea id="chatInput" placeholder="例如：城市夜景 vlog，一个人下班后穿过街区，想要孤独但高级，不要太吵。"></textarea>
+            <textarea id="chatInput" placeholder="例如：城市夜景 vlog，一个人下班后穿过街区，想要孤独但高级，开场BGM不要太吵。"></textarea>
             <div class="composer-actions">
-              <span class="hint" id="composerHint">按“发送给规划 AI”开始新任务。</span>
+              <span class="hint" id="composerHint">按"发送给规划 AI"开始新任务。</span>
               <div class="button-row">
                 <button class="secondary" type="button" id="forceSummary">直接生成总结</button>
                 <button class="primary" type="button" id="sendMessage">发送给规划 AI</button>
@@ -85,7 +97,7 @@
               </div>
             </div>
             <div class="panel-body">
-              <div id="summaryEmpty" class="summary-empty">完成几轮澄清后，规划 AI 会在这里输出完整需求。</div>
+              <div id="summaryEmpty" class="summary-empty">完成几轮澄清后，规划 AI 会在这里输出完整需求（包含配乐用途）。</div>
               <textarea id="summaryEditor" class="summary-editor hidden"></textarea>
               <div class="button-row" style="margin-top:10px;">
                 <button class="primary" type="button" id="confirmSummary">确认需求并生成歌单</button>
@@ -97,16 +109,18 @@
           <section class="panel" id="recommendationPanel">
             <div class="panel-header">
               <div>
-                <h3>推荐歌单</h3>
-                <p>确认需求后，音乐寻找 Agent 和音乐分析 Agent 会生成候选曲目。</p>
+                <h3>寻找结果</h3>
+                <p>专用寻找 Agent 会按渠道搜索精品歌单、单曲和你的收藏。</p>
               </div>
               <span class="pill" id="playlistPill">未生成</span>
             </div>
             <div class="panel-body">
               <div class="metrics">
-                <div class="metric"><strong id="metricTracks">0</strong><span>候选曲库</span></div>
+                <div class="metric"><strong id="metricTracks">0</strong><span>候选曲目</span></div>
                 <div class="metric"><strong id="metricFit">0%</strong><span>最高匹配</span></div>
                 <div class="metric"><strong id="metricBpm">--</strong><span>建议 BPM</span></div>
+              </div>
+              <div class="result-tabs" id="resultTabs">
               </div>
               <div class="result-list" id="resultList"></div>
               <div class="feedback-box hidden" id="feedbackBox">
@@ -119,6 +133,18 @@
         </aside>
       </div>
     </main>
+  </div>
+
+  <div class="modal-overlay hidden" id="loginModal">
+    <div class="modal">
+      <h3>登录网易云音乐</h3>
+      <p class="modal-desc">粘贴你的网易云 MUSIC_U Cookie 即可搜索个人歌单。获取方法：登录网易云音乐网页版 → F12 → Application → Cookies → 复制 MUSIC_U 的值。</p>
+      <textarea id="cookieInput" class="cookie-input" placeholder="粘贴你的 MUSIC_U cookie 值..."></textarea>
+      <div class="button-row">
+        <button class="secondary" type="button" id="cancelLogin">取消</button>
+        <button class="primary" type="button" id="confirmLogin">登录</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/config.js"></script>

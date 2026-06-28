@@ -3,6 +3,12 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const searchRouter = require("./routes/search");
+const {
+  loginWithCookie,
+  isLoggedIn,
+  getUserProfile,
+  logout
+} = require("./services/ncm-user");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +24,27 @@ app.get("/api/health", (_req, res) => {
     service: "乐之笛后端",
     version: "1.0.0",
     time: new Date().toISOString()
+  });
+});
+
+app.post("/api/login", async (req, res) => {
+  const { cookie } = req.body;
+  if (!cookie || typeof cookie !== "string") {
+    return res.status(400).json({ success: false, error: "请提供cookie" });
+  }
+  const result = await loginWithCookie(cookie);
+  res.json(result);
+});
+
+app.post("/api/logout", (_req, res) => {
+  logout();
+  res.json({ success: true });
+});
+
+app.get("/api/user", (_req, res) => {
+  res.json({
+    loggedIn: isLoggedIn(),
+    profile: getUserProfile()
   });
 });
 

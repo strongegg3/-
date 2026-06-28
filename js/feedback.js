@@ -43,7 +43,10 @@
     task.summary = task.confirmedSummary;
     const profile = global.AppProfile.buildProfile(`${task.confirmedSummary} ${additional}`);
     task.profile = profile;
-    task.results = await global.AppFinder.searchCandidates(profile, task.confirmedSummary);
+    const searchResult = await global.AppFinder.searchCandidates(profile, task.confirmedSummary);
+    task.results = searchResult.tracks;
+    task.playlists = searchResult.playlists;
+    task.channels = searchResult.channels || null;
     return task;
   }
 
