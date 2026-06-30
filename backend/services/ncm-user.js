@@ -13,9 +13,20 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
+function normalizeCookie(cookie) {
+  if (!cookie || typeof cookie !== "string") return null;
+  let c = cookie.trim();
+  if (c.length < 10) return null;
+  if (!c.includes("=")) {
+    c = `MUSIC_U=${c};`;
+  }
+  return c;
+}
+
 function setUserCookie(cookie) {
-  if (cookie && typeof cookie === "string" && cookie.trim().length > 10) {
-    userCookie = cookie.trim();
+  const normalized = normalizeCookie(cookie);
+  if (normalized) {
+    userCookie = normalized;
     return true;
   }
   userCookie = null;
@@ -44,19 +55,24 @@ async function loginWithCookie(cookie) {
       REQ_TIMEOUT,
       "login_status"
     );
-    if (result && result.body && result.body.profile) {
+    const data = result?.body?.data;
+    if (data && data.profile && data.account) {
       userProfile = {
-        userId: result.body.profile.userId,
-        nickname: result.body.profile.nickname,
-        avatarUrl: (result.body.profile.avatarUrl || "").replace(/^http:\/\//, "https://"),
-        signature: result.body.profile.signature || ""
+        userId: data.profile.userId,
+        nickname: data.profile.nickname,
+        avatarUrl: (data.profile.avatarUrl || "").replace(/^http:\/\//, "https://"),
+        signature: data.profile.signature || "",
+        vipType: data.account.vipType || 0
       };
       return { success: true, profile: userProfile };
     }
+    const code = data?.code || result?.body?.code;
     userCookie = null;
-    return { success: false, message: "cookie已失效，请重新登录" };
+    userProfile = null;
+    return { success: false, message: `登录失败(code:${code})，请确认cookie是否正确` };
   } catch (err) {
     userCookie = null;
+    userProfile = null;
     return { success: false, message: err.message };
   }
 }

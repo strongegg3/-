@@ -209,6 +209,13 @@
         score += 8;
         reasons.push(`来自你的歌单《${track._playlistName}》`);
       }
+      if (track._fromOst && track._playlistName) {
+        score += 11;
+        reasons.push(`🎬 来自影视/ACG原声歌单《${track._playlistName}》`);
+      } else if (track._fromOst) {
+        score += 8;
+        reasons.push("🎬 影视/ACG原声推荐");
+      }
 
       if (track._previewUrl || track.previewUrl) {
         score += 12;
@@ -331,15 +338,17 @@
 
     const playlistTracks = (findData.channels.playlists.tracks || []);
     const userTracks = (findData.channels.user.tracks || []);
+    const ostTracks = (findData.channels.ost ? findData.channels.ost.tracks : []) || [];
     const singleTracks = (findData.channels.singles.tracks || []);
     const playlistObjs = findData.channels.playlists.playlists || [];
 
     const keyword = findData.keyword || "";
     const scoredPlaylists = scoreRemoteTracks(playlistTracks, profile, keyword);
     const scoredUser = scoreRemoteTracks(userTracks, profile, keyword);
+    const scoredOst = scoreRemoteTracks(ostTracks, profile, keyword);
     const scoredSingles = scoreRemoteTracks(singleTracks, profile, keyword);
 
-    const remoteResults = [...scoredSingles, ...scoredPlaylists, ...scoredUser];
+    const remoteResults = [...scoredSingles, ...scoredPlaylists, ...scoredOst, ...scoredUser];
 
     const all = [...localResults, ...remoteResults];
     const seen = new Set();
@@ -373,6 +382,7 @@
 
     return {
       tracks: finalTracks,
+      allTracks: deduplicated,
       playlists: playlistObjs,
       channels: findData.channels,
       keyword: findData.keyword,

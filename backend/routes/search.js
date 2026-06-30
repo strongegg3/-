@@ -6,6 +6,7 @@ const { searchYouTube } = require("../services/youtube");
 const { searchSpotify } = require("../services/spotify");
 const { normalizeTrack } = require("../utils/normalize");
 const { fetchPremiumPlaylists, getSearchKeywords } = require("../services/ncm-playlist");
+const { fetchOstTracks } = require("../services/ncm-ost");
 const {
   loginWithCookie,
   isLoggedIn,
@@ -275,11 +276,12 @@ router.post("/find", async (req, res) => {
 
   const tracksPerPlaylist = 6;
 
-  const [playlistResult, userResult] = await Promise.all([
+  const [playlistResult, userResult, ostResult] = await Promise.all([
     withTimeoutObj(fetchPremiumPlaylists(useProfile, tracksPerPlaylist), 25000, "精品歌单"),
     isLoggedIn()
       ? withTimeoutObj(searchUserTracksForUse(useProfile, tracksPerPlaylist), 20000, "个人歌单")
-      : Promise.resolve({ playlists: [], tracks: [], loggedIn: false })
+      : Promise.resolve({ playlists: [], tracks: [], loggedIn: false }),
+    withTimeoutObj(fetchOstTracks(useProfile, tracksPerPlaylist), 20000, "影视原声")
   ]);
 
   const singleKeyword = keyword || getSearchKeywords(useProfile);
@@ -323,6 +325,14 @@ router.post("/find", async (req, res) => {
     return normalized;
   });
 
+  const ostTracks = (ostResult.tracks || []).map((r) => {
+    const normalized = normalizeTrack(r, useProfile);
+    normalized._fromOst = true;
+    normalized._playlistName = r._playlistName;
+    normalized.channel = "ost";
+    return normalized;
+  });
+
   res.json({
     keyword: singleKeyword,
     uses: useProfile.uses,
@@ -343,6 +353,13 @@ router.post("/find", async (req, res) => {
           creator: pl.creator, isCreated: pl.isCreated, url: pl.url
         })),
         tracks: deduplicate(userTracks)
+      },
+      ost: {
+        playlists: (ostResult.playlists || []).map((pl) => ({
+          id: pl.id, name: pl.name, cover: pl.cover, trackCount: pl.trackCount,
+          creator: pl.creator, cat: pl.cat, url: pl.url
+        })),
+        tracks: deduplicate(ostTracks)
       },
       singles: {
         tracks: deduplicate(allSingles)
