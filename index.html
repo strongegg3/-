@@ -63,6 +63,7 @@
         <div class="top-actions">
           <span class="pill" id="statusPill">草稿</span>
           <span class="pill live" id="plannerSource">本地模拟待命</span>
+          <button class="ghost-button small export-btn hidden" type="button" id="exportBtn">📋 导出方案</button>
         </div>
       </header>
 
@@ -122,6 +123,20 @@
               </div>
               <div class="result-tabs" id="resultTabs">
               </div>
+              <div class="result-toolbar" id="resultToolbar" style="display:none;">
+                <div class="toolbar-left">
+                  <input type="text" id="filterInput" class="filter-input" placeholder="🔍 过滤歌曲...">
+                </div>
+                <div class="toolbar-right">
+                  <select id="sortSelect" class="sort-select">
+                    <option value="score-desc">匹配度 ↓</option>
+                    <option value="score-asc">匹配度 ↑</option>
+                    <option value="title-asc">标题 A-Z</option>
+                    <option value="duration-asc">时长短 → 长</option>
+                    <option value="duration-desc">时长长 → 短</option>
+                  </select>
+                </div>
+              </div>
               <div class="result-list" id="resultList"></div>
               <div class="feedback-box hidden" id="feedbackBox">
                 <div class="feedback-chips" id="feedbackChips"></div>
@@ -135,6 +150,8 @@
     </main>
   </div>
 
+  <div class="player-bar-spacer" id="playerBarSpacer"></div>
+
   <div class="modal-overlay hidden" id="loginModal">
     <div class="modal">
       <h3>登录网易云音乐</h3>
@@ -147,6 +164,25 @@
     </div>
   </div>
 
+  <div class="player-bar" id="playerBar">
+    <div class="player-cover" id="playerCover">♫</div>
+    <div class="player-info">
+      <p class="player-title" id="playerTitle">未播放</p>
+      <p class="player-artist" id="playerArtist">点击歌曲卡片中的播放按钮开始试听</p>
+      <div class="player-status">
+        <div class="player-wave"><span></span><span></span><span></span></div>
+        <span class="player-text">正在播放</span>
+        <span class="player-duration" id="playerDuration"></span>
+      </div>
+    </div>
+    <div class="player-controls">
+      <button class="player-ctrl-btn" id="playerMode" title="顺序播放">🔁</button>
+      <button class="player-ctrl-btn" id="playerPrev" title="上一首">⏮</button>
+      <button class="player-ctrl-btn" id="playerNext" title="下一首">⏭</button>
+      <button class="player-stop" id="playerStop" title="停止播放">⏹</button>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/catalog.js"></script>
   <script src="js/profile.js"></script>
@@ -155,6 +191,7 @@
   <script src="js/analyst.js"></script>
   <script src="js/feedback.js"></script>
   <script src="js/state.js"></script>
+  <script src="js/player.js"></script>
   <script src="js/render.js"></script>
   <script src="js/main.js"></script>
 </body>

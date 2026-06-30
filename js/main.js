@@ -3,6 +3,9 @@
   global.AppRender.initElementReferences();
   const els = global.AppRender.getElements();
 
+  if (!state.sortBy) state.sortBy = "score-desc";
+  if (!state.filterKeyword) state.filterKeyword = "";
+
   let loginModalEl, cookieInputEl, cancelLoginBtn, confirmLoginBtn;
 
   function activeTask() {
@@ -209,7 +212,7 @@
       const localResult = global.AppFinder.searchLocalOnly(task.profile);
       task.results = localResult.tracks;
       task.playlists = [];
-      task.channels = { playlists: { playlists: [], tracks: [] }, singles: { tracks: [] }, user: { tracks: [], loggedIn: state.user.loggedIn } };
+      task.channels = { playlists: { playlists: [], tracks: [] }, singles: { tracks: [] }, user: { tracks: [], loggedIn: state.user.loggedIn }, ost: { playlists: [], tracks: [] } };
       task._remoteLoading = true;
       task._remoteError = false;
       render();
@@ -217,6 +220,7 @@
       try {
         const searchResult = await global.AppFinder.searchCandidates(task.profile, summary);
         task.results = searchResult.tracks;
+        task.allTracks = searchResult.allTracks || searchResult.tracks;
         task.playlists = searchResult.playlists;
         task.channels = searchResult.channels || null;
         task._remoteError = !task.results.some((t) => t._source === "remote");
@@ -280,12 +284,117 @@
       els.feedbackInput.value = text;
       els.applyFeedback.click();
     });
+
+    if (els.exportBtn) {
+      els.exportBtn.addEventListener("click", () => {
+        const task = activeTask();
+        if (task && task.results && task.results.length > 0) {
+          global.AppPlayer.exportPlaylist(task);
+        }
+      });
+    }
+
+    if (els.playerStop) {
+      els.playerStop.addEventListener("click", () => {
+        global.AppPlayer.stop();
+        global.AppRender.updatePlayerBar();
+        render();
+      });
+    }
+
+    if (els.playerPrev) {
+      els.playerPrev.addEventListener("click", () => {
+        if (global.AppPlayer.playPrev()) {
+          global.AppRender.updatePlayerBar();
+          render();
+        }
+      });
+    }
+
+    if (els.playerNext) {
+      els.playerNext.addEventListener("click", () => {
+        if (global.AppPlayer.playNext()) {
+          global.AppRender.updatePlayerBar();
+          render();
+        }
+      });
+    }
+
+    if (els.playerMode) {
+      els.playerMode.addEventListener("click", () => {
+        const mode = global.AppPlayer.togglePlayMode();
+        const modeNames = { sequence: "顺序播放", shuffle: "随机播放", repeat: "单曲循环" };
+        global.AppRender.showToast(`已切换为: ${modeNames[mode]}`);
+        global.AppRender.updatePlayerBar();
+      });
+    }
+
+    if (els.sortSelect) {
+      els.sortSelect.value = state.sortBy;
+      els.sortSelect.addEventListener("change", () => {
+        state.sortBy = els.sortSelect.value;
+        global.AppState.saveState(state);
+        render();
+      });
+    }
+
+    if (els.filterInput) {
+      els.filterInput.value = state.filterKeyword;
+      let filterTimeout;
+      els.filterInput.addEventListener("input", () => {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+          state.filterKeyword = els.filterInput.value;
+          global.AppState.saveState(state);
+          render();
+        }, 200);
+      });
+    }
+  }
+
+  function bindKeyboardShortcuts() {
+    document.addEventListener("keydown", (e) => {
+      const target = e.target;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (isInput) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        const current = global.AppPlayer.getCurrentTrack();
+        if (current && global.AppPlayer.getIsPlaying()) {
+          global.AppPlayer.stop();
+        } else if (current) {
+          global.AppPlayer.playNext();
+        }
+        global.AppRender.updatePlayerBar();
+        render();
+      } else if (e.code === "ArrowRight" && e.ctrlKey) {
+        e.preventDefault();
+        if (global.AppPlayer.playNext()) {
+          global.AppRender.updatePlayerBar();
+          render();
+        }
+      } else if (e.code === "ArrowLeft" && e.ctrlKey) {
+        e.preventDefault();
+        if (global.AppPlayer.playPrev()) {
+          global.AppRender.updatePlayerBar();
+          render();
+        }
+      } else if (e.code === "KeyM" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const mode = global.AppPlayer.togglePlayMode();
+        const modeNames = { sequence: "顺序播放", shuffle: "随机播放", repeat: "单曲循环" };
+        global.AppRender.showToast(`已切换为: ${modeNames[mode]}`);
+        global.AppRender.updatePlayerBar();
+      }
+    });
   }
 
   async function init() {
     ensureHasTask();
     bindLoginEvents();
     bindEvents();
+    bindKeyboardShortcuts();
     if (state.model) {
       els.baseUrl.value = state.model.baseUrl || "";
       els.modelName.value = state.model.model || "";
@@ -293,6 +402,7 @@
     }
     render();
     window.setTimeout(() => els.chatInput.focus(), 80);
+    global.AppRender.updatePlayerBar();
 
     if (state.user.cookie) {
       await verifyUserLogin();
